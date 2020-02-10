@@ -32,7 +32,8 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+extern char CDC_rx_buff[8];
+extern uint8_t CDC_rx_flag;
 /* USER CODE END PV */
 
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
@@ -94,7 +95,6 @@
 /* It's up to user to redefine and/or remove those define */
 /** Received data over USB are stored in this buffer      */
 uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
-char estado;
 
 /** Data to send over USB CDC are stored in this buffer   */
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
@@ -265,10 +265,15 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
 	if(Buf[0]=='1'){
-		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-		estado="1";
+		HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin,1);
 	}
-
+	strncpy(CDC_rx_buff, (char*)Buf, *Len);
+	CDC_rx_buff[*Len] = 0;
+	if (CDC_rx_buff[0] == 's'){
+	    CDC_rx_flag = 1;
+	}else{
+			CDC_rx_flag = 2;
+	}
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
   return (USBD_OK);
