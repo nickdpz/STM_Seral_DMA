@@ -21,7 +21,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -43,14 +42,18 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 char CDC_tx_buff[];
 char CDC_rx_flag;
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+/* USER CODE END PV */
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_TIM2_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -59,6 +62,13 @@ static void MX_NVIC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/*
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+
+	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+
+}
+*/
 /* USER CODE END 0 */
 
 /**
@@ -91,32 +101,29 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
+  //MX_TIM2_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   /* USER CODE END 2 */
  
- 
+ //HAL_TIM_Base_Start_IT(&htim2);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //buffer=data;
-    /* USER CODE END WHILE */
-
 	  if(CDC_rx_flag=='1'){
-	  		HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin,1);
-	  		sprintf(CDC_tx_buff, "Es 1\r\n");
-	  		CDC_Transmit_FS("Es 1\n\r", 6);
-	  		CDC_rx_flag='n';
-	  	}else if(CDC_rx_flag=='0'){
-	  		HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin,0);
-	  		sprintf(CDC_tx_buff, "Es 0\r\n");
-	  		CDC_Transmit_FS("Es 0\n\r", 6);
-	  		CDC_rx_flag='n';
-	  	}
+	  	  		sprintf(CDC_tx_buff, "Es 1\r\n");
+	  	  		CDC_Transmit_FS("Es 1\n\r", 6);
+	  	  		CDC_rx_flag='n';
+	  	  	}else if(CDC_rx_flag=='0'){
+	  	  		sprintf(CDC_tx_buff, "Es 0\r\n");
+	  	  		CDC_Transmit_FS("Es 0\n\r", 6);
+	  	  		CDC_rx_flag='n';
+	  	  	}
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -179,6 +186,51 @@ static void MX_NVIC_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 4800;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 9999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -193,7 +245,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : LED1_Pin */
   GPIO_InitStruct.Pin = LED1_Pin;
