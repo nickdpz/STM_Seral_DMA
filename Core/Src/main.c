@@ -46,11 +46,15 @@
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-char CDC_tx_buff[60];
-uint8_t CDC_size_buff;
-char CDC_rx_flag;
-extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
-u_int16_t motor_1=9999;
+const int motor_1_max=2150;//constante para la maxima posición del servomotor
+const int motor_1_min=350;//constante para la minima posición del servomotor
+
+
+char CDC_tx_buff[60];//El buffer para enviar los datos por usb
+uint8_t CDC_size_buff;//tamaño de buffer
+char CDC_rx_flag;//Variable que se modifica en el archivo  usbd_cdc_if.c
+extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);//Función que se usa para enviar por usbd_cdc_if.c
+u_int16_t motor_1=900;//variable de posición del motor
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,6 +70,7 @@ static void MX_NVIC_Init(void);
 /* USER CODE BEGIN 0 */
 
 /*
+//Función donde llega la interrupción por Timer
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance==TIM2){
 		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
@@ -109,44 +114,38 @@ int main(void)
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
-  //HAL_TIM_Base_Start_IT(&htim2);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  //HAL_TIM_Base_Start_IT(&htim2); //Habilita interrupción al final de la cuenta definido en sConfigOC.Pulse = 1000;
+  CDC_size_buff=sprintf(CDC_tx_buff,"Hola\n\r");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+  CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);//Habilita PWM
+
   /* USER CODE END 2 */
-  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
-  CDC_size_buff=sprintf(CDC_tx_buff,"Hola\n\r");
-  CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
+ 
+ 
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  motor_1=motor_1+1000;
-	  if(motor_1>9000){
-		  motor_1=0;
-	  }
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
-	  CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
-	  CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
-	  HAL_Delay(5000);
 
-	  /*
-	  if(CDC_rx_flag=='1'){
-		sprintf(CDC_tx_buff, "Es 1\r\n");
-		CDC_Transmit_FS("Es 1\n\r", 6);
-		if(motor_1<9000){
-		motor_1=motor_1+1000;
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+	  if(CDC_rx_flag=='1'){//Cuando llega 1 en el USB se mueve el motor hacia la derecha
+
+		if(motor_1<motor_1_max){
+		motor_1=motor_1+200;
+		 __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
 		}
+		CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
+		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite el valor de la variable motor_1 por el USB
 		CDC_rx_flag='n';
-	  }else if(CDC_rx_flag=='0'){
-			sprintf(CDC_tx_buff, "Es 0\r\n");
-			CDC_Transmit_FS("Es 0\n\r", 6);
-			CDC_rx_flag='n';
-			if(motor_1>0){
-				motor_1=motor_1-1000;
-				__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
-			}
-	  }*/
+	  }else if(CDC_rx_flag=='0'){//Cuando llega 0 en el USB se mueve el motor hacia la izquierda
+		if(motor_1>motor_1_min){
+		motor_1=motor_1-200;
+		 __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+		}
+		CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
+		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
+		CDC_rx_flag='n';
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -229,9 +228,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 4800;
+  htim2.Init.Prescaler = 48;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 9999;
+  htim2.Init.Period = 20000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -254,7 +253,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 5000;
+  sConfigOC.Pulse = 900;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
