@@ -24,7 +24,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include "stdint.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,9 +46,11 @@
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-char CDC_tx_buff[];
+char CDC_tx_buff[60];
+uint8_t CDC_size_buff;
 char CDC_rx_flag;
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+u_int16_t motor_1=9999;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,9 +67,9 @@ static void MX_NVIC_Init(void);
 
 /*
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-
-	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-
+	if(htim->Instance==TIM2){
+		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+	}
 }
 */
 /* USER CODE END 0 */
@@ -101,28 +104,49 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
-  //MX_TIM2_Init();
+  MX_TIM2_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
+  //HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   /* USER CODE END 2 */
- 
- //HAL_TIM_Base_Start_IT(&htim2);
+  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+  CDC_size_buff=sprintf(CDC_tx_buff,"Hola\n\r");
+  CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  motor_1=motor_1+1000;
+	  if(motor_1>9000){
+		  motor_1=0;
+	  }
+	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+	  CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
+	  CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
+	  HAL_Delay(5000);
+
+	  /*
 	  if(CDC_rx_flag=='1'){
-	  	  		sprintf(CDC_tx_buff, "Es 1\r\n");
-	  	  		CDC_Transmit_FS("Es 1\n\r", 6);
-	  	  		CDC_rx_flag='n';
-	  	  	}else if(CDC_rx_flag=='0'){
-	  	  		sprintf(CDC_tx_buff, "Es 0\r\n");
-	  	  		CDC_Transmit_FS("Es 0\n\r", 6);
-	  	  		CDC_rx_flag='n';
-	  	  	}
+		sprintf(CDC_tx_buff, "Es 1\r\n");
+		CDC_Transmit_FS("Es 1\n\r", 6);
+		if(motor_1<9000){
+		motor_1=motor_1+1000;
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+		}
+		CDC_rx_flag='n';
+	  }else if(CDC_rx_flag=='0'){
+			sprintf(CDC_tx_buff, "Es 0\r\n");
+			CDC_Transmit_FS("Es 0\n\r", 6);
+			CDC_rx_flag='n';
+			if(motor_1>0){
+				motor_1=motor_1-1000;
+				__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+			}
+	  }*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -199,6 +223,7 @@ static void MX_TIM2_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
@@ -218,15 +243,28 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 5000;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 
@@ -245,7 +283,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED1_Pin */
   GPIO_InitStruct.Pin = LED1_Pin;
