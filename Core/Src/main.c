@@ -39,11 +39,13 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define I2C_Dir_1 		0x20
+//#define GP2Y0Ed         0x20//default write
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-TIM_HandleTypeDef htim1;
+I2C_HandleTypeDef hi2c2;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
@@ -63,10 +65,10 @@ u_int16_t motor_1=900;//variable de posición del motor
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_I2C2_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -77,12 +79,13 @@ static void MX_NVIC_Init(void);
 
 
 //Función donde llega la interrupción por Timer
+/*
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance==TIM4){
-		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+		//HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
 	}
 }
-
+*/
 /* USER CODE END 0 */
 
 /**
@@ -115,19 +118,19 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
-  MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_I2C2_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim2); //Habilita interrupción al final de la cuenta definido en sConfigOC.Pulse = 1000;
-  HAL_TIM_Base_Start_IT(&htim4); //Habilita interrupción al final de la cuenta definido en
-  CDC_size_buff=sprintf(CDC_tx_buff,"Hola\n\r");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-  CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);//Habilita PWM
+  //HAL_TIM_Base_Start_IT(&htim2); //Habilita interrupción al final de la cuenta definido en sConfigOC.Pulse = 1000;
+  //HAL_TIM_Base_Start_IT(&htim4); //Habilita interrupción al final de la cuenta definido en
+  //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);//Habilita PWM
+
+  uint8_t i, result;
 
   /* USER CODE END 2 */
  
@@ -137,7 +140,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  HAL_Delay(2000);
+	  	    CDC_size_buff=sprintf(CDC_tx_buff,"Scanning I2C bus:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  	    CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
 
+	  	   	for (i=1; i<128; i++)
+	  	   	{
+	  	   	  result = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)(i<<1), 2, 2);
+	  	   	  if (result != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+	  	   	  {
+	  	   		CDC_size_buff=sprintf(CDC_tx_buff,".");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  	   		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
+	  	   	  }else{
+	  	   		CDC_size_buff=sprintf(CDC_tx_buff,"0x%X", i);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  	   		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
+	  	   	  }
+	  	   	}
+
+	  /*
+	  if(HAL_I2C_IsDeviceReady(&hi2c1, I2C_Dir_1, 2, 10)==HAL_OK){//Dos intentos
+		  CDC_size_buff=sprintf(CDC_tx_buff,"Responde\n\r");
+		  		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite el valor de la variable motor_1 por el USB
+	  }else{
+		  CDC_size_buff=sprintf(CDC_tx_buff,"Nada\n\r");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+		    CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
+	  }*/
+
+	  /*
 	  if(CDC_rx_flag=='1'){//Cuando llega 1 en el USB se mueve el motor hacia la derecha
 
 		if(motor_1<motor_1_max){
@@ -155,7 +184,7 @@ int main(void)
 		CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
 		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
 		CDC_rx_flag='n';
-	  }
+	  }*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -219,48 +248,36 @@ static void MX_NVIC_Init(void)
 }
 
 /**
-  * @brief TIM1 Initialization Function
+  * @brief I2C2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM1_Init(void)
+static void MX_I2C2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM1_Init 0 */
+  /* USER CODE BEGIN I2C2_Init 0 */
 
-  /* USER CODE END TIM1_Init 0 */
+  /* USER CODE END I2C2_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  /* USER CODE BEGIN I2C2_Init 1 */
 
-  /* USER CODE BEGIN TIM1_Init 1 */
-
-  /* USER CODE END TIM1_Init 1 */
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 48;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 100;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.ClockSpeed = 100000;
+  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
   {
     Error_Handler();
   }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM1_Init 2 */
+  /* USER CODE BEGIN I2C2_Init 2 */
 
-  /* USER CODE END TIM1_Init 2 */
+  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -426,9 +443,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : LED1_Pin */
   GPIO_InitStruct.Pin = LED1_Pin;
