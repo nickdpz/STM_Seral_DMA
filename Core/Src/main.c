@@ -56,7 +56,7 @@ const int motor_1_min=350;//constante para la minima posición del servomotor
 
 
 char CDC_tx_buff[60];//El buffer para enviar los datos por usb
-uint8_t CDC_size_buff;//tamaño de buffer
+uint8_t CDC_tx_size;//tamaño de buffer
 char CDC_rx_flag;//Variable que se modifica en el archivo  usbd_cdc_if.c
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);//Función que se usa para enviar por usbd_cdc_if.c
 u_int16_t motor_1=900;//variable de posición del motor
@@ -130,8 +130,6 @@ int main(void)
   //HAL_TIM_Base_Start_IT(&htim4); //Habilita interrupción al final de la cuenta definido en
   //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);//Habilita PWM
 
-  uint8_t i, result;
-
   /* USER CODE END 2 */
  
  
@@ -140,22 +138,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_Delay(2000);
-	  	    CDC_size_buff=sprintf(CDC_tx_buff,"Scanning I2C bus:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-	  	    CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
-
-	  	   	for (i=1; i<128; i++)
-	  	   	{
-	  	   	  result = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)(i<<1), 2, 2);
-	  	   	  if (result != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
-	  	   	  {
-	  	   		CDC_size_buff=sprintf(CDC_tx_buff,".");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-	  	   		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
-	  	   	  }else{
-	  	   		CDC_size_buff=sprintf(CDC_tx_buff,"0x%X", i);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-	  	   		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
-	  	   	  }
-	  	   	}
+	  	HAL_Delay(100);
+	  	CDC_tx_size=sprintf(CDC_tx_buff,"Scanning I2C bus:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  	CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
+	  	uint8_t i=1;
+	  	for (i=1; i<128; i++)
+	  	{
+	  		int result = HAL_I2C_IsDeviceReady(&hi2c2,i<<1,1,1);
+	  		if (result != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+	  		{
+	  			//CDC_tx_size=sprintf(CDC_tx_buff,".");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  			//CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
+	  		}else{
+	  			CDC_tx_size=sprintf(CDC_tx_buff,"\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  			CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
+	  			CDC_tx_size=sprintf(CDC_tx_buff,"0x%X", i);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+	  			CDC_Transmit_FS((uint8_t *)CDC_tx_buff,CDC_tx_size);//Transmite por USB
+	  		}
+	  	}
 
 	  /*
 	  if(HAL_I2C_IsDeviceReady(&hi2c1, I2C_Dir_1, 2, 10)==HAL_OK){//Dos intentos
