@@ -72,6 +72,7 @@ char CDC_rx_flag;//Variable que se modifica en el archivo  usbd_cdc_if.c
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);//Función que se usa para enviar por usbd_cdc_if.c
 u_int16_t motor_1=900;//variable de posición del motor
 uint8_t datai2c[2];
+uint8_t data_tx_i2c;
 uint8_t distance_cm;
 unsigned char distance_cm;
 uint8_t data;
@@ -157,31 +158,40 @@ int main(void)
 		HAL_Delay(1000);
 	  	CDC_tx_size=sprintf(CDC_tx_buff,"Inciando:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
 	  	CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
-		if (HAL_I2C_IsDeviceReady(&hi2c2,ADDR_DIS_1<<1,1,1) != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+		if (HAL_I2C_IsDeviceReady(&hi2c2,ADDR_DIS_1<<1,1,1) == HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
 		{
-			HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, DISTANCE_ADDR1, 1, 100);
-			HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&datai2c[0], 1, 100);
-			HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, DISTANCE_ADDR2, 1, 100);
-			HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&datai2c[1], 1, 100);
+			//data_tx_i2c=SHIFT_ADDR;
+			//HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, &data_tx_i2c, 1, 5000);
+			//HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&data, 1, 5000);
+			//CDC_tx_size=sprintf(CDC_tx_buff,"Shift %02X\n\r",data);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+			//CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
+			data_tx_i2c=DISTANCE_ADDR1;
+			HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, &data_tx_i2c, 1, 5000);
+			HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&datai2c[0], 1, 5000);
+			data_tx_i2c=DISTANCE_ADDR2;
+			HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, &data_tx_i2c, 1, 5000);
+			HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&datai2c[1], 1, 5000);
 			distance_cm = (datai2c[0]*16+datai2c[1])/64;//calculo de distancia
-			CDC_tx_size=sprintf(CDC_tx_buff,"distancia1 %02X\n\r",distance_cm);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-			CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
-			result=HAL_I2C_Mem_Read(&hi2c2,ADDR_DIS_1<<1,SHIFT_ADDR,I2C_MEMADD_SIZE_8BIT,&data,1,100);
+			CDC_tx_size=sprintf(CDC_tx_buff,"distancia %i\n\r",distance_cm);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+			CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
+			result=HAL_I2C_Mem_Read(&hi2c2,ADDR_DIS_1<<1,SHIFT_ADDR,I2C_MEMADD_SIZE_8BIT,&data,1,5000);
 			if(result!=HAL_OK){
 				CDC_tx_size=sprintf(CDC_tx_buff,"Paila %d\n\r",result);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-				CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
-
+				CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
 			}else{
-				CDC_tx_size=sprintf(CDC_tx_buff,"distancia2 %02X\n\r",data);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-				CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
+				CDC_tx_size=sprintf(CDC_tx_buff,"Shift Memoria %02X\n\r",data);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+				CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
 			}
 		}
-		if (HAL_I2C_IsDeviceReady(&hi2c2,ADDR_MPU<<1,1,1) != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
-				{
-					HAL_I2C_Master_Transmit(&hi2c2,ADDR_MPU<<1,ACCEL_XOUT_H , 1, 100);
-					HAL_I2C_Master_Receive(&hi2c2,ADDR_MPU<<1,&datai2c[0], 1, 100);
+
+		//MPU
+		if (HAL_I2C_IsDeviceReady(&hi2c2,ADDR_MPU<<1,1,1) == HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+		{
+					data_tx_i2c=ACCEL_XOUT_H;
+					HAL_I2C_Master_Transmit(&hi2c2,ADDR_MPU<<1,&data_tx_i2c, 1, 5000);
+					HAL_I2C_Master_Receive(&hi2c2,ADDR_MPU<<1,&datai2c[0], 1, 5000);
 					CDC_tx_size=sprintf(CDC_tx_buff,"mpu %02X\n\r",datai2c[0]);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-					CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
+					CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
 		}
 
     /* USER CODE END WHILE */
