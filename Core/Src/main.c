@@ -60,6 +60,8 @@ uint8_t CDC_tx_size;//tamaño de buffer
 char CDC_rx_flag;//Variable que se modifica en el archivo  usbd_cdc_if.c
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);//Función que se usa para enviar por usbd_cdc_if.c
 u_int16_t motor_1=900;//variable de posición del motor
+uint8_t i=1;
+int result;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -141,10 +143,9 @@ int main(void)
 	  	HAL_Delay(100);
 	  	CDC_tx_size=sprintf(CDC_tx_buff,"Scanning I2C bus:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
 	  	CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
-	  	uint8_t i=1;
 	  	for (i=1; i<128; i++)
 	  	{
-	  		int result = HAL_I2C_IsDeviceReady(&hi2c2,i<<1,1,1);
+	  		result = HAL_I2C_IsDeviceReady(&hi2c2,i<<1,1,1);
 	  		if (result != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
 	  		{
 	  			//CDC_tx_size=sprintf(CDC_tx_buff,".");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
