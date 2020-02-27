@@ -43,15 +43,14 @@
 #define RIGHT_EDGE_ADDR 0xF8 // C
 #define LEFT_EDGE_ADDR  0xF9 // A
 #define PEAK_EDGE_ADDR  0xFA // B
-#define ADDR_DIS_1 		0xE0
-#define ADDR_MPU		0xD0
-#define ACCEL_XOUT_H 0x3B
+#define ADDR_DIS_1 		0x70
+#define ADDR_MPU		0x68
+#define ACCEL_XOUT_H 	0x3B
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
-//#define GP2Y0Ed         0x20//default write
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -76,6 +75,7 @@ uint8_t data_tx_i2c;
 uint8_t distance_cm;
 unsigned char distance_cm;
 uint8_t data;
+uint8_t i=1;
 int result;
 /* USER CODE END PV */
 
@@ -103,6 +103,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	}
 }
 */
+
+void scanner_I2C(){
+  	CDC_tx_size=sprintf(CDC_tx_buff,"Escaneando:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+  	CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
+	for (i=1; i<128; i++)
+		  	{
+		  		int result = HAL_I2C_IsDeviceReady(&hi2c2,i<<1,1,1);
+		  		if (result != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+		  		{
+		  		}else{
+		  			CDC_tx_size=sprintf(CDC_tx_buff,"\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+		  			CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
+		  			CDC_tx_size=sprintf(CDC_tx_buff,"0x%X", i);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+		  			CDC_Transmit_FS((uint8_t *)CDC_tx_buff,CDC_tx_size);//Transmite por USB
+		  		}
+		  	}
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -156,6 +175,7 @@ int main(void)
   while (1)
   {
 		HAL_Delay(100);
+		scanner_I2C();
 	  	CDC_tx_size=sprintf(CDC_tx_buff,"Inciando:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
 	  	CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
 	  	result = HAL_I2C_IsDeviceReady(&hi2c2,ADDR_DIS_1<<1,1,1);
