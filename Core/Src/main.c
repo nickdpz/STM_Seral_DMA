@@ -35,11 +35,22 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define GP2Y0E          0x40//default
+#define SHIFT_BYTE      0x02 //64 cm shift = 2 128 cm shift = 1
+#define SHIFT_ADDR      0x35
+#define DISTANCE_ADDR1  0x5E
+#define DISTANCE_ADDR2  0x5F
+#define RIGHT_EDGE_ADDR 0xF8 // C
+#define LEFT_EDGE_ADDR  0xF9 // A
+#define PEAK_EDGE_ADDR  0xFA // B
+#define ADDR_DIS_1 		0x70
+#define ADDR_MPU		0x68
+#define ACCEL_XOUT_H 0x3B
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define I2C_Dir_1 		0x20
+
 //#define GP2Y0Ed         0x20//default write
 /* USER CODE END PM */
 
@@ -60,6 +71,11 @@ uint8_t CDC_tx_size;//tamaño de buffer
 char CDC_rx_flag;//Variable que se modifica en el archivo  usbd_cdc_if.c
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);//Función que se usa para enviar por usbd_cdc_if.c
 u_int16_t motor_1=900;//variable de posición del motor
+uint8_t datai2c[2];
+uint8_t distance_cm;
+unsigned char distance_cm;
+uint8_t data;
+uint8_t result;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -138,58 +154,42 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  	HAL_Delay(100);
-	  	CDC_tx_size=sprintf(CDC_tx_buff,"Scanning I2C bus:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+		HAL_Delay(1000);
+	  	CDC_tx_size=sprintf(CDC_tx_buff,"Inciando:\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
 	  	CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
-	  	uint8_t i=1;
-	  	for (i=1; i<128; i++)
-	  	{
-	  		int result = HAL_I2C_IsDeviceReady(&hi2c2,i<<1,1,1);
-	  		if (result != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
-	  		{
-	  			//CDC_tx_size=sprintf(CDC_tx_buff,".");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-	  			//CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
-	  		}else{
-	  			CDC_tx_size=sprintf(CDC_tx_buff,"\r\n");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-	  			CDC_Transmit_FS((uint8_t *)&CDC_tx_buff,CDC_tx_size);//Transmite por USB
-	  			CDC_tx_size=sprintf(CDC_tx_buff,"0x%X", i);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-	  			CDC_Transmit_FS((uint8_t *)CDC_tx_buff,CDC_tx_size);//Transmite por USB
-	  		}
-	  	}
+		if (HAL_I2C_IsDeviceReady(&hi2c2,ADDR_DIS_1<<1,1,1) != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+		{
+			HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, DISTANCE_ADDR1, 1, 100);
+			HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&datai2c[0], 1, 100);
+			HAL_I2C_Master_Transmit(&hi2c2,ADDR_DIS_1<<1, DISTANCE_ADDR2, 1, 100);
+			HAL_I2C_Master_Receive(&hi2c2,ADDR_DIS_1<<1,&datai2c[1], 1, 100);
+			distance_cm = (datai2c[0]*16+datai2c[1])/64;//calculo de distancia
+			CDC_tx_size=sprintf(CDC_tx_buff,"distancia1 %02X\n\r",distance_cm);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+			CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
+			result=HAL_I2C_Mem_Read(&hi2c2,ADDR_DIS_1<<1,SHIFT_ADDR,I2C_MEMADD_SIZE_8BIT,&data,1,100);
+			if(result!=HAL_OK){
+				CDC_tx_size=sprintf(CDC_tx_buff,"Paila %d\n\r",result);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+				CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
 
-	  /*
-	  if(HAL_I2C_IsDeviceReady(&hi2c1, I2C_Dir_1, 2, 10)==HAL_OK){//Dos intentos
-		  CDC_size_buff=sprintf(CDC_tx_buff,"Responde\n\r");
-		  		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite el valor de la variable motor_1 por el USB
-	  }else{
-		  CDC_size_buff=sprintf(CDC_tx_buff,"Nada\n\r");//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
-		    CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite por USB
-	  }*/
-
-	  /*
-	  if(CDC_rx_flag=='1'){//Cuando llega 1 en el USB se mueve el motor hacia la derecha
-
-		if(motor_1<motor_1_max){
-		motor_1=motor_1+200;
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+			}else{
+				CDC_tx_size=sprintf(CDC_tx_buff,"distancia2 %02X\n\r",data);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+				CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
+			}
 		}
-		CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
-		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);//Transmite el valor de la variable motor_1 por el USB
-		CDC_rx_flag='n';
-	  }else if(CDC_rx_flag=='0'){//Cuando llega 0 en el USB se mueve el motor hacia la izquierda
-		if(motor_1>motor_1_min){
-		motor_1=motor_1-200;
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,motor_1);
+		if (HAL_I2C_IsDeviceReady(&hi2c2,ADDR_MPU<<1,1,1) != HAL_OK) // HAL_ERROR or HAL_BUSY or HAL_TIMEOUT
+				{
+					HAL_I2C_Master_Transmit(&hi2c2,ADDR_MPU<<1,ACCEL_XOUT_H , 1, 100);
+					HAL_I2C_Master_Receive(&hi2c2,ADDR_MPU<<1,&datai2c[0], 1, 100);
+					CDC_tx_size=sprintf(CDC_tx_buff,"mpu %02X\n\r",datai2c[0]);//Guarda en la variable CDC_tx_buff el string y el tamaño del string queda en CDC_size_buff
+					CDC_Transmit_FS(CDC_tx_buff,CDC_tx_size);//Transmite por USB
 		}
-		CDC_size_buff=sprintf(CDC_tx_buff,"%u\n\r",motor_1);
-		CDC_Transmit_FS(CDC_tx_buff, CDC_size_buff);
-		CDC_rx_flag='n';
-	  }*/
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
+		/* USER CODE END 3 */
+
 }
 
 /**
